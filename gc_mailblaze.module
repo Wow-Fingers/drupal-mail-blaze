@@ -1,0 +1,266 @@
+<?php
+/****
+ * API Integrate with Mail Blaze
+ * https://www.mailblaze.com/support/article-view/360025314571
+ * https://chi.mailblaze.com/api/docs
+ */
+
+/**
+ * Implements hook_menu.
+ */
+function gc_mailblaze_menu(){
+    $menu = array();
+
+	// settings form: meta settings - settings for the entire module more for a super-admin.
+	$menu['admin/config/services/mailblaze'] = array(
+		'title' => 'Mail Blaze Settings',
+		'description' => 'Configuration for Mail Blaze API',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('gc_mailblaze_settings'),
+		'access arguments' => array('administer mailblaze settings'),
+		'type' => MENU_NORMAL_ITEM
+	);
+
+    // settings form: meta settings - settings for the entire module more for a super-admin.
+    $menu['admin/config/services/mailblaze/test'] = array(
+        'title' => 'Test Mail Blaze',
+        'description' => 'Test Configuration for Mail Blaze API',
+        'page callback' => 'gc_mailblaze_general_test',
+        'file'          => 'gc_mailblaze.test.inc',
+        'access arguments' => array('administer mailblaze settings'),
+        'type' => MENU_NORMAL_ITEM
+    );
+
+    return $menu;
+}
+
+/**
+ * Implements hook_permission
+ */
+function gc_alterations_permission() {
+	return array(
+		'administer mailblaze settings' => array(
+			'title' => t('Mail Blaze API'),
+			'description' => t('Administer Mail Blaze API Settings.'),
+		)
+	);
+}
+
+// helper to get the creds
+function _gc_mailblaze_get_credentials($key=null){
+    $creds = variable_get('gc_mailblaze_credentials', [
+       'public_key' => '',
+       'baseurl'    => 'https://chi.mailblaze.com/api'
+    ]);
+
+    // if we specify a key:
+    if( !empty($key) && isset($creds[$key]) ){
+        return $creds[$key];
+    }
+
+    // else we return them all
+    return $creds;
+}
+
+// helper to get the keys
+function _gc_mailblaze_get_defaults($key=null){
+    $defaults = variable_get('gc_mailblaze_defaults', [
+        'general' => [
+            'opt_in' => 'single'
+        ],
+        'defaults' => [
+            'from_name'  => '',
+            'reply_to'   => '',
+            'from_email' => '',
+        ],
+       'company' => [
+           'name'       => '',
+           'country_id' => '',
+           'address_1'  => '',
+           'city'       => '',
+           'zip_code'   => ''
+       ]
+    ]);
+
+    // if we specify a key:
+    if( !empty($key) && isset($defaults[$key]) ){
+        return $defaults[$key];
+    }
+
+    // else we return them all
+    return $defaults;
+}
+
+// get debug
+function _gc_mailblaze_debug_status(){
+    return variable_get('gc_mailblaze_debug', 0);
+}
+
+/**
+ * module settings
+ */
+function gc_mailblaze_settings($form, &$form_state){
+
+    // base url includes querystring
+	$form['gc_mailblaze_credentials'] = array(
+        '#tree' => true,
+		'#type' => 'fieldset',
+		'#title' => t('Mail Blaze Credentials'),
+        '#collapsible' => false
+	);
+
+    $creds = _gc_mailblaze_get_credentials();
+
+    // base url includes querystring
+	$form['gc_mailblaze_credentials']['baseurl'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze Base URL'),
+		'#default_value' => $creds['baseurl'],
+		'#required' => true
+	);
+
+    // public key
+    $form['gc_mailblaze_credentials']['public_key'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze Public Key'),
+		'#default_value' => $creds['public_key'],
+		'#required' => false
+	);
+
+    // default variables for ease of interaction
+	$form['gc_mailblaze_defaults'] = array(
+        '#tree' => true,
+		'#type' => 'fieldset',
+		'#title' => t('Mail Blaze Defaults'),
+        '#collapsible' => false
+	);
+
+    $defaults = _gc_mailblaze_get_defaults();
+
+    // defaults var group
+	$form['gc_mailblaze_defaults']['general'] = array(
+        '#tree' => true,
+		'#type' => 'fieldset',
+		'#title' => t('General'),
+        '#collapsible' => false
+	);
+
+    // opt-in
+    $form['gc_mailblaze_defaults']['general']['opt_in'] = array(
+		'#type' => 'select',
+		'#title' => t('Mail Blaze general opt_in'),
+		'#default_value' => $defaults['general']['opt_in'],
+        '#options' => ['single' => 'Single', 'double' => 'Double'],
+		'#required' => false
+	);
+
+    // defaults var group
+	$form['gc_mailblaze_defaults']['defaults'] = array(
+        '#tree' => true,
+		'#type' => 'fieldset',
+		'#title' => t('Defaults'),
+        '#collapsible' => false
+	);
+
+    $form['gc_mailblaze_defaults']['defaults']['from_name'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze default from_name'),
+		'#default_value' => $defaults['defaults']['from_name'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['defaults']['reply_to'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze default reply_to'),
+		'#default_value' => $defaults['defaults']['reply_to'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['defaults']['from_email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze default from_email'),
+		'#default_value' => $defaults['defaults']['from_email'],
+		'#required' => false
+	);
+
+    // company var group
+	$form['gc_mailblaze_defaults']['company'] = array(
+        '#tree' => true,
+		'#type' => 'fieldset',
+		'#title' => t('Company Defaults'),
+        '#collapsible' => false
+	);
+
+    $form['gc_mailblaze_defaults']['company']['name'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze company name'),
+		'#default_value' => $defaults['company']['name'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['company']['country_id'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze company country_id'),
+		'#default_value' => $defaults['company']['country_id'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['company']['address_1'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze company address_1'),
+		'#default_value' => $defaults['company']['address_1'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['company']['city'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze company city'),
+		'#default_value' => $defaults['company']['city'],
+		'#required' => false
+	);
+
+    $form['gc_mailblaze_defaults']['company']['zip_code'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mail Blaze company zip_code'),
+		'#default_value' => $defaults['company']['zip_code'],
+		'#required' => false
+	);
+
+	// debug or not?
+	$form['gc_mailblaze_debug'] = array(
+		'#type' => 'checkbox',
+		'#title' => t('Debug Mode'),
+		'#default_value' => variable_get('gc_mailblaze_debug', 0),
+		//'#required' => true
+	);
+
+	return system_settings_form($form);
+}
+
+
+// -- mailblaze helpers/ API interface: Drupal 7 is very function orientated --
+
+// instantiators
+function gc_mailblaze_instance(){
+    $mailblaze_object = &drupal_static(__FUNCTION__); /// drupal's static cache mechanism
+
+    if( !isset($mailblaze_object) ){
+        $mailblaze_object = new MailBlaze(_gc_mailblaze_get_credentials(), _gc_mailblaze_get_defaults(), _gc_mailblaze_debug_status());
+    }
+
+    return $mailblaze_object;
+}
+
+// -- mailblaze functions : map directly to API commands list  --
+
+// create a list and return the uuid
+function gc_mailblaze_lists_create($parameters){
+    $mailblaze = gc_mailblaze_instance();
+    return $mailblaze->create('Lists', $parameters);
+}
+
+// creat a list and subscript the users
+function gc_mailblaze_subscriber_lists_create($list_parameters, $subscribers){
+    $mailblaze = gc_mailblaze_instance();
+    return $mailblaze->createListsSubscribers($list_parameters, $subscribers);
+}

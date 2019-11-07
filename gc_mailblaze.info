@@ -1,0 +1,7 @@
+name = "Mail Blaze API"
+description = "API integration with Mail Blaze"
+package = "Wow Fingers"
+files[] = classes/MailBlaze.php
+configure = admin/config/services/mailblaze
+core = 7.x
+version = "7.x-1.1"
