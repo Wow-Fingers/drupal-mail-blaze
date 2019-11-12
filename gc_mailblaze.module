@@ -37,7 +37,7 @@ function gc_mailblaze_menu(){
 /**
  * Implements hook_permission
  */
-function gc_alterations_permission() {
+function gc_mailblaze_permission() {
 	return array(
 		'administer mailblaze settings' => array(
 			'title' => t('Mail Blaze API'),
